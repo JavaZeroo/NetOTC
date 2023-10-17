@@ -4,13 +4,13 @@
 rng(311);
 
 % Params
-n_iter = 100;
+n_iter = 1; %100
 block_size = 5;
 n_blocks = 6;
 n = block_size*n_blocks;
 dim = 5;
 
-for mean1=1:4
+for mean1=1:1 %1:4
     values = table([], []);
     values.Properties.VariableNames = {'Algorithm' 'Accuracy'};
     mean_sigma = 0.5 + mean1 * 0.5;
@@ -33,12 +33,20 @@ for mean1=1:4
                 end
             end
         end
-
+        %disp("size of V1")
+        %disp(size(V1))
+        %disp("size of V2")
+        %disp(size(V2))
+        %disp("size of A1")
+        %disp(size(A1))
+        %disp("size of A2")
+        %disp(size(A2))
         %% Do GraphOTC
         % Get transition matrices
+        disp(A1)
         P1 = A1 ./ sum(A1, 2);
         P2 = A2 ./ sum(A2, 2);
-        
+        disp(P1)
         stat_dist1 = approx_stat_dist(P1, 100)';
         stat_dist2 = approx_stat_dist(P2, 100)';
         
