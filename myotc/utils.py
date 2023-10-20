@@ -1,5 +1,7 @@
 import numpy as np
 from scipy.optimize import linprog
+from pulp import LpMinimize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
+import pulp
 
 def approx_stat_dist(P, iter):
     n = P.shape[0]
@@ -51,7 +53,8 @@ def computeot_lp(C, r, c):
     lb = np.zeros(nx * ny)
 
     cost = C.reshape(nx * ny)
-    res = linprog(cost, A_eq=A_eq, b_eq=b_eq, bounds=[(0, None) for _ in range(nx * ny)], method='highs')
+    options = {'disp': False, 'tol': 1e-9, 'presolve': False, 'method': 'interior-point'}
+    res = linprog(cost, A_eq=A_eq, b_eq=b_eq, bounds=[(0, None) for _ in range(nx * ny)], options=options)
 
     return res.x, res.fun
 def exact_tci(g, h, P0, Px, Py):
@@ -98,23 +101,76 @@ def exact_tci(g, h, P0, Px, Py):
     return P
 
 
+# def get_best_stat_dist(P, c):
+#     n = P.shape[0]  # Number of states
+#     c_flat = c.flatten()
+#     I_n = np.eye(n)
+#     ones_row = np.ones((1, n))
+#     A_eq = np.block([[I_n - P], [ones_row]])
+#     b_eq = np.concatenate([np.zeros(n), [1]])
+    
+#     # Fix the bounds to match the size of c_flat
+#     bounds = [(0, None) for _ in range(len(c_flat))]
+#     print(c_flat, A_eq, b_eq, bounds)
+#     res = linprog(c_flat, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
+#     if res.success:
+#         stat_dist = res.x
+#         exp_cost = res.fun
+#     else:
+#         raise Exception('Failed to compute stationary distribution.')
+#     return stat_dist, exp_cost
+
+def pulp_lp(c, Aeq, beq):
+    # Define the LP problem
+    prob = LpProblem("My_LP_Problem", LpMinimize)
+
+    # Define the decision variables
+    x = [LpVariable(f"x{i}", lowBound=0) for i in range(len(c))]
+
+    # Add the objective function
+    prob += lpSum(c[i] * x[i] for i in range(len(c)))
+
+    # Add the equality constraints
+    for i in range(len(beq)):
+        prob += lpSum(Aeq[i][j] * x[j] for j in range(len(c))) == beq[i]
+
+    # Solve the problem using CBC solver
+    prob.solve(PULP_CBC_CMD(msg=False))
+
+    # Get the results
+    pulp_results = [var.varValue for var in x]
+    return np.array(pulp_results), pulp.value(prob.objective)
+
 def get_best_stat_dist(P, c):
-    n = P.shape[0]  # Number of states
-    c_flat = c.flatten()
-    I_n = np.eye(n)
-    ones_row = np.ones((1, n))
-    A_eq = np.block([[I_n - P], [ones_row]])
-    b_eq = np.concatenate([np.zeros(n), [1]])
+    """
+    Compute best stationary distribution of a transition matrix given
+    a cost matrix c.
+
+    Parameters:
+    P (numpy.ndarray): transition matrix of shape (n, n)
+    c (numpy.ndarray): cost matrix of shape (n, n)
+
+    Returns:
+    tuple: (stat_dist, exp_cost)
+        stat_dist (numpy.ndarray): vector of shape (n,) corresponding to best stationary distribution of P with respect to c.
+        exp_cost (float): the expected cost of stat_dist with respect to c.
+    """
+    # Set up constraints.
+    n = P.shape[0]
+    c = c.ravel()  # Reshape to a 1D array to match Matlab code
+    Aeq = np.vstack([P.T - np.eye(n), np.ones((1, n))])
+    beq = np.zeros(n + 1)
+    beq[-1] = 1
+    # lb = np.zeros(n)
     
-    # Fix the bounds to match the size of c_flat
-    bounds = [(0, None) for _ in range(len(c_flat))]
+    # Solve linear program.
+    options = {'disp': False, 'tol': 1e-6, 'presolve': False}
+    # checked
+    res = linprog(c, A_eq=Aeq, b_eq=beq, bounds=[(0, None) for _ in range(n)], options=options)
     
-    res = linprog(c_flat, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-    if res.success:
-        stat_dist = res.x
-        exp_cost = res.fun
-    else:
-        raise Exception('Failed to compute stationary distribution.')
+    # stat_dist,exp_cost = pulp_lp(c, Aeq, beq)
+    stat_dist = res.x
+    exp_cost = res.fun
     return stat_dist, exp_cost
 
 def exact_otc(Px, Py, c):
@@ -122,38 +178,20 @@ def exact_otc(Px, Py, c):
     dy = Py.shape[0]
     
     P_old = np.ones((dx * dy, dx * dy))
-    P = get_ind_tc(Px, Py)
-    
+    P = get_ind_tc(Px, Py) # checked
+    # print(f'P: {P}')
     iter_ctr = 0
     while np.max(np.abs(P - P_old)) > 1e-10:
         iter_ctr += 1
         P_old = P
         g, h = exact_tce(P, c)
         # The following line is a placeholder. The function exact_tci needs to be implemented.
-        P = exact_tci(g, h, P_old, Px, Py)
+        P = exact_tci(g, h, P_old, Px, Py) # checked
         # Check for convergence (placeholder)
         if np.all(P == P_old):
+            # P, c Checked
             stat_dist, exp_cost = get_best_stat_dist(P, c)
-            return stat_dist.reshape((dy, dx)).T, exp_cost
-
-def exact_otc(Px, Py, c):
-    dx = Px.shape[0]
-    dy = Py.shape[0]
-    
-    P_old = np.ones((dx * dy, dx * dy))
-    P = get_ind_tc(Px, Py)
-    
-    iter_ctr = 0
-    while np.max(np.abs(P - P_old)) > 1e-10:
-        iter_ctr += 1
-        P_old = P
-        g, h = exact_tce(P, c)
-        # The following line is a placeholder. The function exact_tci needs to be implemented.
-        P = exact_tci(g, h, P_old, Px, Py)
-        # Check for convergence (placeholder)
-        if np.all(P == P_old):
-            stat_dist, exp_cost = get_best_stat_dist(P, c)
-            return stat_dist.reshape((dy, dx)).T, exp_cost
+            return exp_cost, P, stat_dist.reshape((dy, dx), order='F').T # 使用列优先（column-major）顺序 reshape
 
 def fgw_dist(M, C1, C2, mu1, mu2, q, alpha):
     def fgw_loss(pi):
@@ -176,7 +214,7 @@ def fgw_dist(M, C1, C2, mu1, mu2, q, alpha):
                         grad[i, j] += 2 * alpha * abs(C1[i, k] - C2[j, l]) ** q * pi[k, l]
         return grad
 
-    pi = mu1[:, None] * mu2[None, :]
+    pi = (mu1[:, None] * mu2[None, :])[:,:,0]
     m, n = pi.shape
 
     n_iter = 100
