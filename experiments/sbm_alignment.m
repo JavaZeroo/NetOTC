@@ -14,7 +14,7 @@ function sbm_alignment(n_points1, n_points2, n_iter, longleaf)
         addpath('/nas/longleaf/home/bongsoo/GraphOTC_final/GraphOTC/','/nas/longleaf/home/bongsoo/GraphOTC_final/GraphOTC/otc/','/nas/longleaf/home/bongsoo/GraphOTC_final/GraphOTC/otc/ot_algorithms/','/nas/longleaf/home/bongsoo/GraphOTC_final/GraphOTC/utils/', '/nas/longleaf/home/bongsoo/GraphOTC_final/GraphOTC/experiments/');
         dir = '/pine/scr/b/o/bongsoo/GraphOTC/sbm_alignment/';
     else
-        dir = '/Users/bongsooyi/Documents/NetOTC/experiments/isomorphism/';
+        dir = './isomorphism/';
     end
     
     expdir = [dir expid '/'];

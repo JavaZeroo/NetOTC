@@ -191,6 +191,7 @@ def exact_otc(Px, Py, c):
         if np.all(P == P_old):
             # P, c Checked
             stat_dist, exp_cost = get_best_stat_dist(P, c)
+            
             return exp_cost, P, stat_dist.reshape((dy, dx), order='F').T # 使用列优先（column-major）顺序 reshape
 
 def fgw_dist(M, C1, C2, mu1, mu2, q, alpha):
