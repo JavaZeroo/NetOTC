@@ -1,3 +1,8 @@
+# Python NetOTC
+
+All Code has been rewritten in Python and is available at `pyotc/utils.py`. The code is tested by `factor_experiment.ipynb` compare with the original Matlab code `experiments/factor_experiment.m`. The result should be the same. 
+
+
 # NetOTC
  
 This is the official repository for the paper titled "Alignment and Comparison of Directed Networks via

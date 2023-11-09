@@ -1,7 +1,5 @@
 import numpy as np
 from scipy.optimize import linprog
-from pulp import LpMinimize, LpProblem, LpVariable, lpSum, PULP_CBC_CMD
-import pulp
 
 def approx_stat_dist(P, iter):
     n = P.shape[0]
@@ -99,47 +97,6 @@ def exact_tci(g, h, P0, Px, Py):
         P = P0
     
     return P
-
-
-# def get_best_stat_dist(P, c):
-#     n = P.shape[0]  # Number of states
-#     c_flat = c.flatten()
-#     I_n = np.eye(n)
-#     ones_row = np.ones((1, n))
-#     A_eq = np.block([[I_n - P], [ones_row]])
-#     b_eq = np.concatenate([np.zeros(n), [1]])
-    
-#     # Fix the bounds to match the size of c_flat
-#     bounds = [(0, None) for _ in range(len(c_flat))]
-#     print(c_flat, A_eq, b_eq, bounds)
-#     res = linprog(c_flat, A_eq=A_eq, b_eq=b_eq, bounds=bounds, method='highs')
-#     if res.success:
-#         stat_dist = res.x
-#         exp_cost = res.fun
-#     else:
-#         raise Exception('Failed to compute stationary distribution.')
-#     return stat_dist, exp_cost
-
-def pulp_lp(c, Aeq, beq):
-    # Define the LP problem
-    prob = LpProblem("My_LP_Problem", LpMinimize)
-
-    # Define the decision variables
-    x = [LpVariable(f"x{i}", lowBound=0) for i in range(len(c))]
-
-    # Add the objective function
-    prob += lpSum(c[i] * x[i] for i in range(len(c)))
-
-    # Add the equality constraints
-    for i in range(len(beq)):
-        prob += lpSum(Aeq[i][j] * x[j] for j in range(len(c))) == beq[i]
-
-    # Solve the problem using CBC solver
-    prob.solve(PULP_CBC_CMD(msg=False))
-
-    # Get the results
-    pulp_results = [var.varValue for var in x]
-    return np.array(pulp_results), pulp.value(prob.objective)
 
 def get_best_stat_dist(P, c):
     """
